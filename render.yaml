@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: soundmix-api
+    runtime: docker
+    healthCheckPath: /api/health
+    envVars:
+      - key: SOUNDMIX_API_KEY
+        sync: false
+      - key: SOUNDMIX_CORS_ORIGIN
+        value: "*"
