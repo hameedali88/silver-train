@@ -389,7 +389,7 @@ PAGE = r'''<!doctype html>
 
 <div class="format-row"><div class="format-label">صيغة التصدير<small>اختر الأنسب لاستخدامك</small></div><select class="format-select" name="format" id="format"><option value="ogg" selected>OGG · Opus · الحجم المناسب</option><option value="mp3">MP3 · حجم أصغر</option><option value="wav">WAV · جودة غير مضغوطة</option></select></div>
 
-<div class="privacy-note"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></svg><span>المعالجة تتم على السيرفر باستخدام FFmpeg. لا يُرسل الملف الأصلي إلى Mixkit أو أي خادم خارجي.</span></div>
+<div class="privacy-note"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></svg><span>المعالجة تتم محليًا باستخدام FFmpeg. لا يُرسل الملف الأصلي إلى Mixkit أو أي خادم خارجي.</span></div>
 
 <button class="export-btn" id="exportButton" type="submit" disabled>امزج الصوت ونزّل الملف</button>
 
@@ -445,7 +445,7 @@ document.querySelectorAll('[data-listen]').forEach(btn=>btn.addEventListener('cl
 
 sceneAudio.addEventListener('error',()=>setStatus('تعذر تحميل عينة الخلفية من Mixkit. تحقق من اتصال الإنترنت ثم أعد المحاولة.','error'));
 
-mixForm.addEventListener('submit',async e=>{e.preventDefault();const file=sourceFile.files[0];if(!file){setStatus('اختر ملفًا صوتيًا أولًا.','error');return}if(file.size>300*1024*1024){setStatus('حجم الملف يتجاوز 300 ميغابايت.','error');return}const selected=document.querySelector('input[name="background"]:checked');if(selected?.value==='custom'&&!customFile.files[0]){setStatus('اختر ملف الخلفية الخاص بك أو حدد مشهدًا جاهزًا.','error');return}if(customFile.files[0]&&customFile.files[0].size>300*1024*1024){setStatus('حجم الخلفية يتجاوز 300 ميغابايت.','error');return}exportButton.disabled=true;exportButton.innerHTML='<span class="spinner"></span> جارٍ تجهيز المزيج على السيرفر…';document.getElementById('output').classList.remove('show');setStatus('قد يستغرق التصدير بعض الوقت للملفات الطويلة. لا تغلق البرنامج الآن.','busy');try{const form=new FormData(mixForm);const response=await fetch('/api/mix',{method:'POST',body:form});if(!response.ok){let msg='تعذر إتمام المزج.';try{msg=(await response.json()).error||msg}catch{}throw new Error(msg)}const blob=await response.blob();if(resultUrl)URL.revokeObjectURL(resultUrl);resultUrl=URL.createObjectURL(blob);const ext=document.getElementById('format').value;const link=document.getElementById('downloadLink');link.href=resultUrl;link.download='soundmix-output.'+ext;document.getElementById('resultAudio').src=resultUrl;document.getElementById('output').classList.add('show');setStatus('اكتمل المزج. يمكنك الاستماع أو حفظ الملف.','ok');link.click()}catch(err){setStatus(err.message||'حدث خطأ أثناء المزج.','error')}finally{exportButton.disabled=false;exportButton.textContent='امزج الصوت ونزّل الملف'}});
+mixForm.addEventListener('submit',async e=>{e.preventDefault();const file=sourceFile.files[0];if(!file){setStatus('اختر ملفًا صوتيًا أولًا.','error');return}if(file.size>300*1024*1024){setStatus('حجم الملف يتجاوز 300 ميغابايت.','error');return}const selected=document.querySelector('input[name="background"]:checked');if(selected?.value==='custom'&&!customFile.files[0]){setStatus('اختر ملف الخلفية الخاص بك أو حدد مشهدًا جاهزًا.','error');return}if(customFile.files[0]&&customFile.files[0].size>300*1024*1024){setStatus('حجم الخلفية يتجاوز 300 ميغابايت.','error');return}exportButton.disabled=true;exportButton.innerHTML='<span class="spinner"></span> جارٍ رفع الملف وتجهيز المزيج على الخادم…';document.getElementById('output').classList.remove('show');setStatus('قد يستغرق التصدير بعض الوقت للملفات الطويلة. لا تغلق البرنامج الآن.','busy');try{const form=new FormData(mixForm);const response=await fetch('/api/mix',{method:'POST',body:form});if(!response.ok){let msg='تعذر إتمام المزج.';try{msg=(await response.json()).error||msg}catch{}throw new Error(msg)}const blob=await response.blob();if(resultUrl)URL.revokeObjectURL(resultUrl);resultUrl=URL.createObjectURL(blob);const ext=document.getElementById('format').value;const link=document.getElementById('downloadLink');link.href=resultUrl;link.download='soundmix-output.'+ext;document.getElementById('resultAudio').src=resultUrl;document.getElementById('output').classList.add('show');setStatus('اكتمل المزج. يمكنك الاستماع أو حفظ الملف.','ok');link.click()}catch(err){setStatus(err.message||'حدث خطأ أثناء المزج.','error')}finally{exportButton.disabled=false;exportButton.textContent='امزج الصوت ونزّل الملف'}});
 
 </script></body></html>'''
 
@@ -905,7 +905,7 @@ def mix_audio(
 
 def json_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
 
-    raw = json.dumps({"success": False, "error": message}, ensure_ascii=False).encode("utf-8")
+    raw = json.dumps({"error": message}, ensure_ascii=False).encode("utf-8")
 
     handler.send_response(code)
 
@@ -915,16 +915,9 @@ def json_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None
 
     handler.send_header("Cache-Control", "no-store")
 
-    handler.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
-
-    handler.send_header("X-Content-Type-Options", "nosniff")
-
     handler.end_headers()
 
-    try:
-        handler.wfile.write(raw)
-    except (BrokenPipeError, ConnectionResetError):
-        pass
+    handler.wfile.write(raw)
 
 
 
@@ -940,11 +933,9 @@ class SoundMixServer(ThreadingHTTPServer):
 
 class SoundMixHandler(BaseHTTPRequestHandler):
 
-    server_version = "SoundMixAPI/1.1"
+    server_version = "SoundMixAPI/1.0"
 
     sys_version = ""
-
-    protocol_version = "HTTP/1.1"
 
 
 
@@ -965,9 +956,9 @@ class SoundMixHandler(BaseHTTPRequestHandler):
 
 
     def _api_key_allowed(self) -> bool:
-        """Validate Bearer API authentication for external API clients."""
+        """Validate Bearer API authentication. If no key is configured, allow the request."""
         if not API_KEY:
-            return False
+            return True
         authorization = self.headers.get("Authorization", "")
         if not authorization.startswith("Bearer "):
             return False
@@ -983,13 +974,7 @@ class SoundMixHandler(BaseHTTPRequestHandler):
         return origin in {f"http://{host}", f"https://{host}"}
 
     def _authorized(self) -> bool:
-        # The bundled UI can always use its own API.
-        if self._same_origin_allowed():
-            return True
-        # API key is optional. If configured, external clients must send it.
-        if not API_KEY:
-            return True
-        return self._api_key_allowed()
+        return self._api_key_allowed() or self._same_origin_allowed()
 
     def _cors_origin(self) -> str:
         return CORS_ORIGIN
@@ -1021,42 +1006,10 @@ class SoundMixHandler(BaseHTTPRequestHandler):
             raw = json.dumps({
                 "success": True,
                 "service": "soundmix",
-                "version": "1.1",
+                "version": "1.0",
                 "status": "online",
                 "ffmpeg": bool(self.app_server.ffmpeg_path),
-                "api_key_required": bool(API_KEY),
             }, ensure_ascii=False).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(raw)))
-            self.send_header("Access-Control-Allow-Origin", self._cors_origin())
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(raw)
-            return
-
-
-        if route == "/api":
-            raw = json.dumps({
-                "success": True,
-                "service": "soundmix",
-                "version": "1.1",
-                "ui": "/",
-                "health": "/api/health",
-                "mix": {
-                    "method": "POST",
-                    "path": "/api/mix",
-                    "content_type": "multipart/form-data",
-                    "fields": {
-                        "audio": "required audio file",
-                        "background": "rain|traffic|market|street|neighborhood|custom",
-                        "custom_background": "required only when background=custom",
-                        "mix_level": "0..40 (default 12)",
-                        "format": "ogg|mp3|wav (default ogg)"
-                    },
-                    "authorization": "Bearer API_KEY when SOUNDMIX_API_KEY is configured"
-                }
-            }, ensure_ascii=False, indent=2).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(raw)))
@@ -1120,7 +1073,7 @@ class SoundMixHandler(BaseHTTPRequestHandler):
             return
 
         if not self._authorized():
-            json_error(self, 401, "API Key غير صالح. استخدم Authorization: Bearer YOUR_API_KEY.")
+            json_error(self, 401, "API Key مفقود أو غير صالح. استخدم Authorization: Bearer YOUR_API_KEY.")
             return
 
         ffmpeg_path = self.app_server.ffmpeg_path
@@ -1253,17 +1206,13 @@ class SoundMixHandler(BaseHTTPRequestHandler):
 
                 self.send_header("Cache-Control", "no-store")
 
-                self.send_header("Access-Control-Allow-Origin", self._cors_origin())
-
-                self.send_header("Access-Control-Expose-Headers", "Content-Disposition, Content-Length")
-
                 self.end_headers()
 
                 with output_path.open("rb") as stream:
 
                     shutil.copyfileobj(stream, self.wfile, length=256 * 1024)
 
-        except (BrokenPipeError, ConnectionResetError):
+        except BrokenPipeError:
 
             pass
 
@@ -1326,10 +1275,10 @@ def start_server(port: int, open_browser: bool) -> None:
 
     print(f"\n{APP_NAME} API يعمل على: {url}")
     print(f"API endpoint: http://{display_host}:{server.server_port}/api/mix")
-    print("المعالجة تتم على السيرفر على هذا السيرفر. أوقف الخدمة بـ Ctrl+C.\n")
+    print("المعالجة تتم على الخادم. أوقف الخدمة بـ Ctrl+C.\n")
 
     if not API_KEY:
-        print("تنبيه: SOUNDMIX_API_KEY غير مضبوط؛ الـ API متاح حاليًا بدون مصادقة. أضف المفتاح في Render لحمايته.\n")
+        print("SOUNDMIX_API_KEY غير مضبوط؛ /api/mix يعمل بدون مفتاح. ضع المفتاح في Render لحماية API.\n")
 
     if not ffmpeg:
 
